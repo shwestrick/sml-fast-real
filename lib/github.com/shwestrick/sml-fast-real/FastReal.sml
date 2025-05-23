@@ -1,4 +1,9 @@
-functor FastReal(R: REAL):
+functor FastReal
+  (R:
+   sig
+     include REAL
+     val fromLargeWord: LargeWord.word -> real
+   end):
 sig
   val from_chars: {start: int, stop: int, get: int -> char}
                   -> {result: R.real, num_chomped: int} option
@@ -167,14 +172,11 @@ struct
         andalso mantissa <= max_mantissa_fast_path
       then
         (* TODO: overheads of all of these conversions? failure cases?
-         * WARNING: Currently this will only work with
-         *   -default-type int64
-         * Can we just use MLton's R.castFromWord?
-         * R.fromInt seems to depend on rounding mode?
+         * R.fromLargeWord seems to depend on rounding mode?
          * (use IEEEReal.getRoundingMode?)
          *)
         let
-          val value: R.real = R.fromInt (Word64.toInt mantissa)
+          val value = R.fromLargeWord (Word64.toLarge mantissa)
           val value =
             if exponent < 0 then R./ (value, exact_power_of_ten (~exponent))
             else R.* (value, exact_power_of_ten exponent)
