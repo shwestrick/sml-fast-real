@@ -41,6 +41,56 @@ struct
   val wtos = Word64.fmt StringCvt.DEC
 
 
+  val min_exponent_fast_path =
+    case R.precision of
+      53 => ~22 (* 64-bit double *)
+    | 24 => ~10 (* 32-bit float *)
+    | _ => 0 (* otherwise, not sure *)
+
+
+  val max_exponent_fast_path =
+    case R.precision of
+      53 => 22 (* 64-bit double *)
+    | 24 => 10 (* 32-bit float *)
+    | _ => 0 (* otherwise, not sure *)
+
+
+  val max_mantissa_fast_path = Word64.<< (0w1, Word.fromInt R.precision)
+
+
+  fun r (x: real) : R.real =
+    R.fromLarge IEEEReal.TO_NEAREST (Real.toLarge x)
+
+
+  val exact_powers_of_ten: R.real vector = Vector.fromList
+    [ r 1e0
+    , r 1e1
+    , r 1e2
+    , r 1e3
+    , r 1e4
+    , r 1e5
+    , r 1e6
+    , r 1e7
+    , r 1e8
+    , r 1e9
+    , r 1e10
+    , r 1e11
+    , r 1e12
+    , r 1e13
+    , r 1e14
+    , r 1e15
+    , r 1e16
+    , r 1e17
+    , r 1e18
+    , r 1e19
+    , r 1e20
+    , r 1e21
+    , r 1e22
+    ]
+
+  fun exact_power_of_ten e = Vector.sub (exact_powers_of_ten, e)
+
+
   fun from_chars {start: int, stop: int, get: int -> char} =
     let
       val () = print ("[FastReal.from_chars: WARNING: work in progress!]\n")
@@ -109,7 +159,32 @@ struct
       val _ = print ("mantissa " ^ wtos mantissa ^ "\n")
       val _ = print ("exponent " ^ itos exponent ^ "\n")
     in
-      NONE
+      (* checking for fast path; not 100% sure about explicit_exponent_digit_count *)
+      if
+        digit_count <= 19 andalso explicit_exponent_digit_count <= 19
+        andalso min_exponent_fast_path <= exponent
+        andalso exponent <= max_exponent_fast_path
+        andalso mantissa <= max_mantissa_fast_path
+      then
+        (* TODO: overheads of all of these conversions? failure cases?
+         * WARNING: Currently this will only work with
+         *   -default-type int64
+         * Can we just use MLton's R.castFromWord?
+         * R.fromInt seems to depend on rounding mode?
+         * (use IEEEReal.getRoundingMode?)
+         *)
+        let
+          val value: R.real = R.fromInt (Word64.toInt mantissa)
+          val value =
+            if exponent < 0 then R./ (value, exact_power_of_ten (~exponent))
+            else R.* (value, exact_power_of_ten exponent)
+          val value = if is_negative then R.~ value else value
+        in
+          SOME {result = value, num_chomped = i - start}
+        end
+      else (* TODO: SLOW PATH *)
+        NONE
+
     end
 
 end
