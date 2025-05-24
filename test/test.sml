@@ -10,4 +10,10 @@ val x = FR.from_chars
 val () =
   case x of
     NONE => print ("NONE\n")
-  | SOME {result, num_chomped} => print (Real.fmt StringCvt.EXACT result ^ "\n")
+  | SOME {result, num_chomped} =>
+      ( print (Real.fmt StringCvt.EXACT result ^ "\n")
+      ; print
+          ("the rest: \""
+           ^ String.substring (s, num_chomped, String.size s - num_chomped)
+           ^ "\"\n")
+      )

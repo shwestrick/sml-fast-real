@@ -184,8 +184,15 @@ struct
         in
           SOME {result = value, num_chomped = i - start}
         end
-      else (* TODO: SLOW PATH *)
-        NONE
+      else
+        let
+          val () = print ("SLOW PATH\n")
+          fun reader i =
+            if i >= stop then NONE else SOME (get i, i + 1)
+        in
+          Option.map (fn (r, i') => {result = r, num_chomped = i' - start})
+            (R.scan reader start)
+        end
 
     end
 
