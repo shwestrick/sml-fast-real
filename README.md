@@ -4,8 +4,7 @@
 
   * (Status as of 6/2/2025): Fast path appears to be working.
     Parse-back agrees with `Real.scan` on all inputs tested so far.
-    Error cases are not fully handled yet. Parsing will silently succeed
-    on some invalid representations, such as `"1.E10"`.
+    Error cases are not fully handled yet; see issue #1.
 
 Standard ML library for faster parsing of Reals (floats/doubles), heavily
 inspired by [`fast_float`](https://github.com/fastfloat/fast_float).
