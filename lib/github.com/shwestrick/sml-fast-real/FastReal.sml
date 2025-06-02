@@ -5,8 +5,13 @@ functor FastReal
      val fromLargeWord: LargeWord.word -> real
    end):
 sig
-  val from_chars: {start: int, stop: int, get: int -> char}
-                  -> {result: R.real, num_chomped: int} option
+  val from_chars_with_info:
+    {start: int, stop: int, get: int -> char}
+    -> {result: R.real, num_chomped: int, fast_path: bool} option
+
+  (* the rest of these functions are just wrappers around from_chars_with_info *)
+  val from_chars: {start: int, stop: int, get: int -> char} -> R.real option
+  val from_string: string -> R.real option
 end =
 struct
 
@@ -96,10 +101,8 @@ struct
   fun exact_power_of_ten e = Vector.sub (exact_powers_of_ten, e)
 
 
-  fun from_chars {start: int, stop: int, get: int -> char} =
+  fun from_chars_with_info {start: int, stop: int, get: int -> char} =
     let
-      val () = print ("[FastReal.from_chars: WARNING: work in progress!]\n")
-
       (* Parsing moves forward by advancing `i`, the current index.
        * We accumulate digits into `mantissa: Word64.word`, and keep track
        * of the number of digits accumulated with `digit_count`. This
@@ -108,7 +111,8 @@ struct
        *)
 
       val i = start
-      val (is_negative, i) = if get i = #"-" then (true, i + 1) else (false, i)
+      val (is_negative, i) =
+        if get i = #"-" orelse get i = #"~" then (true, i + 1) else (false, i)
 
       val (mantissa, i') =
         push_digit_chars 0w0 {start = i, stop = stop, get = get}
@@ -136,7 +140,9 @@ struct
             val i = i + 1
 
             val (explicit_exponent_is_negative, i) =
-              if get i = #"-" then (true, i + 1) else (false, i)
+              if get i = #"-" orelse get i = #"~" then (true, i + 1)
+              else if get i = #"+" then (false, i + 1)
+              else (false, i)
 
             val (explicit_exponent_num, i') =
               push_digit_chars 0w0 {start = i, stop = stop, get = get}
@@ -153,16 +159,16 @@ struct
             (true, explicit_exponent_digit_count, exponent, i)
           end
 
-      val _ = print ("start " ^ itos start ^ "\n")
-      val _ = print ("stop  " ^ itos stop ^ "\n")
-      val _ = print ("i     " ^ itos i ^ "\n")
-      val _ = print ("neg   " ^ btos is_negative ^ "\n")
-      val _ = print ("dot   " ^ btos has_dot ^ "\n")
-      val _ = print ("e     " ^ btos has_explicit_exponent ^ "\n")
-      val _ = print ("edig  " ^ itos explicit_exponent_digit_count ^ "\n")
-      val _ = print ("dig   " ^ itos digit_count ^ "\n")
-      val _ = print ("mantissa " ^ wtos mantissa ^ "\n")
-      val _ = print ("exponent " ^ itos exponent ^ "\n")
+    (* val _ = print ("start " ^ itos start ^ "\n")
+    val _ = print ("stop  " ^ itos stop ^ "\n")
+    val _ = print ("i     " ^ itos i ^ "\n")
+    val _ = print ("neg   " ^ btos is_negative ^ "\n")
+    val _ = print ("dot   " ^ btos has_dot ^ "\n")
+    val _ = print ("e     " ^ btos has_explicit_exponent ^ "\n")
+    val _ = print ("edig  " ^ itos explicit_exponent_digit_count ^ "\n")
+    val _ = print ("dig   " ^ itos digit_count ^ "\n")
+    val _ = print ("mantissa " ^ wtos mantissa ^ "\n")
+    val _ = print ("exponent " ^ itos exponent ^ "\n") *)
     in
       (* checking for fast path; not 100% sure about explicit_exponent_digit_count *)
       if
@@ -171,8 +177,8 @@ struct
         andalso exponent <= max_exponent_fast_path
         andalso mantissa <= max_mantissa_fast_path
       then
-        (* TODO: overheads of all of these conversions? failure cases?
-         * R.fromLargeWord seems to depend on rounding mode?
+        (* TODO: overheads of fromLargeWord? failure cases?
+         * fromLargeWord seems to depend on rounding mode?
          * (use IEEEReal.getRoundingMode?)
          *)
         let
@@ -182,18 +188,27 @@ struct
             else R.* (value, exact_power_of_ten exponent)
           val value = if is_negative then R.~ value else value
         in
-          SOME {result = value, num_chomped = i - start}
+          SOME {result = value, num_chomped = i - start, fast_path = true}
         end
       else
         let
-          val () = print ("SLOW PATH\n")
           fun reader i =
             if i >= stop then NONE else SOME (get i, i + 1)
         in
-          Option.map (fn (r, i') => {result = r, num_chomped = i' - start})
+          Option.map
+            (fn (r, i') =>
+               {result = r, num_chomped = i' - start, fast_path = false})
             (R.scan reader start)
         end
 
     end
+
+
+  fun from_chars xxx =
+    Option.map #result (from_chars_with_info xxx)
+
+  fun from_string s =
+    from_chars
+      {start = 0, stop = String.size s, get = fn i => String.sub (s, i)}
 
 end
