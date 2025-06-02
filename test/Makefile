@@ -1,5 +1,7 @@
 SML_FAST_REAL_SOURCES=../lib/github.com/shwestrick/sml-fast-real/**.mlb ../lib/github.com/shwestrick/sml-fast-real/**.sml
 
+default: test
+
 lib:
 	smlpkg sync
 
