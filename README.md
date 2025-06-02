@@ -58,6 +58,15 @@ end =
 
 ## Example Usage
 
+Example `.mlb` file:
+```
+$(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/basis/mlton.mlb    (* for MLton.Real64 *)
+lib/github.com/shwestrick/sml-fast-real/sources.mlb
+main.sml
+```
+
+Example `main.sml`:
 ```sml
 structure R64 =
 struct
