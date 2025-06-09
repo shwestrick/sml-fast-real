@@ -24,6 +24,15 @@ struct
   fun push_digit_char acc c =
     Word64.* (0w10, acc) + digit_char_to_word64 c
 
+  fun skip_whitespace {start, stop, get} =
+    let
+      fun loop i =
+        if i >= stop then i
+        else if Char.isSpace (get i) then loop (i + 1)
+        else i
+    in
+      loop start
+    end
 
   (* read digits and accumulate into `acc`, continuing until we see a
    * non-digit char, or until we hit `stop`
@@ -101,19 +110,29 @@ struct
   fun exact_power_of_ten e = Vector.sub (exact_powers_of_ten, e)
 
 
-  fun from_chars_with_info {start: int, stop: int, get: int -> char} =
+  (* ========================================================================
+   * Main parsing functions. Parsing moves forward by advancing `i`, the
+   * current index. We accumulate digits into `mantissa: Word64.word`, and
+   * keep track of the number of digits accumulated with `digit_count`. This
+   * approach is capable of handling at most 19 decimal digits; if the
+   * digit_count exceeds 19, then we need to fall back on a slow path.
+   *)
+
+  (* locally used, only in from_chars_with_info_maybe_error, for early return *)
+  exception FromCharsError
+
+  fun from_chars_with_info_maybe_error {start: int, stop: int, get: int -> char} =
     let
-      (* Parsing moves forward by advancing `i`, the current index.
-       * We accumulate digits into `mantissa: Word64.word`, and keep track
-       * of the number of digits accumulated with `digit_count`. This
-       * approach is capable of handling at most 19 decimal digits; if the
-       * digit_count exceeds 19, then we need to fall back on a slow path.
-       *)
+      val i = skip_whitespace {start = start, stop = stop, get = get}
+      val () = if i >= stop then raise FromCharsError else ()
 
-      val i = start
+      (* [+~-] *)
       val (is_negative, i) =
-        if get i = #"-" orelse get i = #"~" then (true, i + 1) else (false, i)
+        if get i = #"-" orelse get i = #"~" then (true, i + 1)
+        else if get i = #"+" then (false, i + 1)
+        else (false, i)
 
+      (* [0-9]+? *)
       val (mantissa, i') =
         push_digit_chars 0w0 {start = i, stop = stop, get = get}
       val digit_count = i' - i
@@ -131,6 +150,11 @@ struct
       val exponent = ~digit_count_past_dot
       val digit_count = digit_count + digit_count_past_dot
       val i = i'
+
+      (* If no mantissa digits (either before or after the dot, if any), then
+       * it's a parse error. This handles a variety of badly formatted strings.
+       *)
+      val () = if digit_count = 0 then raise FromCharsError else ()
 
       val (has_explicit_exponent, explicit_exponent_digit_count, exponent, i) =
         if i >= stop orelse (get i <> #"e" andalso get i <> #"E") then
@@ -202,6 +226,11 @@ struct
         end
 
     end
+
+
+  fun from_chars_with_info xxx =
+    from_chars_with_info_maybe_error xxx
+    handle FromCharsError => NONE
 
 
   fun from_chars xxx =
