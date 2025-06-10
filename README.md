@@ -46,17 +46,22 @@ functor FastReal
      val fromLargeWord: LargeWord.word -> real
    end):
 sig
-  val from_chars_with_info:
-    {start: int, stop: int, get: int -> char}
-    -> {result: R.real, num_chomped: int, fast_path: bool} option
+  (* implicitly defines a sequence of characters
+   *   [ get(start), get(start+1), ..., get(stop-1) ]
+   *)
+  type chars = {start: int, stop: int, get: int -> char}
 
-  (* the rest of these functions are just wrappers around from_chars_with_info *)
-  val from_chars: {start: int, stop: int, get: int -> char} -> R.real option
+  type result_with_info = {result: R.real, num_chomped: int, fast_path: bool}
+
+  val from_chars: chars -> R.real option
+  val from_chars_with_info: chars -> result_with_info option
+
   val from_string: string -> R.real option
+  val from_string_with_info: string -> result_with_info option
 end =
 ```
 
-## Example Usage
+## Example Usage (MLton, MaPLe)
 
 Example `.mlb` file:
 ```
