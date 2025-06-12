@@ -1,11 +1,5 @@
 # sml-fast-real
 
-:warning: work in progress :warning:
-
-  * (Status as of 6/2/2025): Fast path appears to be working.
-    Parse-back agrees with `Real.scan` on all inputs tested so far.
-    Error cases are not fully handled yet; see issue #1.
-
 Standard ML library for faster parsing of Reals (floats/doubles), heavily
 inspired by [`fast_float`](https://github.com/fastfloat/fast_float).
 
@@ -15,6 +9,10 @@ path currently falls back on `Real.scan`.
 
 Compatible with the [`smlpkg`](https://github.com/diku-dk/smlpkg)
 package manager.
+
+[**Status as of 6/12/2025**: Fast path seems to be working.
+Parse-back agrees with `Real.scan` on all inputs tested so far.
+Some more testing would be helpful; see issue [#1](https://github.com/shwestrick/sml-fast-real/issues/1).]
 
 ## Library Sources
 
