@@ -10,19 +10,54 @@ val rs =
   Seq.tabulate
     (fn i => #1 (RealStringGen.gen (RealStringGen.seed_from_int (seed + i)))) n
 
+(* to test that the num_chomped values are correct, let's put some garbage
+ * characters after every real string. We'll use any character except for
+ * a digit.
+ *)
+fun gen_char_except_digit seed =
+  let
+    (* printable range (including the space character) is [32,127),
+     * and we want to exclude the 10 digits.
+     *)
+    val x = 32 + Util.hash seed mod (127 - 32 - 10)
+  in
+    if x < Char.ord #"0" then Char.chr x else Char.chr (x + 10)
+  end
+
+val seed = Util.hash (Util.hash seed)
+
+val afters =
+  Seq.tabulate
+    (fn i => Seq.tabulate (fn j => gen_char_except_digit (seed + 5 * i + j)) 5)
+    n
+
+fun interleave s t =
+  if Seq.length s <> Seq.length t then
+    raise Fail "interleave"
+  else
+    Seq.tabulate
+      (fn i => if i mod 2 = 0 then Seq.nth s (i div 2) else Seq.nth t (i div 2))
+      (2 * Seq.length s)
+
 val rs_charseqs =
-  Seq.map (fn s => Seq.tabulate (fn i => String.sub (s, i)) (String.size s)) rs
+  interleave
+    (Seq.map (fn s => Seq.tabulate (fn i => String.sub (s, i)) (String.size s))
+       rs) afters
+
 val offsets =
   ArraySlice.full (SeqBasis.scan 1000 op+ 0 (0, Seq.length rs_charseqs) (fn i =>
     Seq.length (Seq.nth rs_charseqs i)))
 val chars = Seq.flatten rs_charseqs
 
+val () = print (Util.summarizeArraySlice 100 Char.toString chars ^ "\n")
+val () = print (Util.summarizeArraySlice 10 Int.toString offsets ^ "\n")
+
 fun nth i =
   let
-    val lo = Seq.nth offsets i
-    val hi = Seq.nth offsets (i + 1)
+    val lo = Seq.nth offsets (2 * i)
+    val hi = Seq.nth offsets (2 * i + 1)
   in
-    Seq.subseq chars (lo, hi - lo)
+    (lo, hi)
   end
 
 
@@ -36,12 +71,13 @@ val rs_from_string = Benchmark.run "Real.scan" (fn () =>
   Seq.tabulate
     (fn i =>
        let
-         val lo = Seq.nth offsets i
-         val hi = Seq.nth offsets (i + 1)
+         val (lo, hi) = nth i
+
          fun reader i =
            if i >= hi then NONE else SOME (Seq.nth chars i, i + 1)
+         val (r, stop) = valOf (Real.scan reader lo)
        in
-         #1 (valOf (Real.scan reader lo))
+         {result = r, num_chomped = stop - lo}
        end) n)
 
 
@@ -58,14 +94,20 @@ fun report_errors results =
     val error =
       if Seq.length results = n then
         SeqBasis.reduce 1000 combine NONE (0, n) (fn i =>
-          if cmp (Seq.nth rs_from_string i, Seq.nth results i) then
-            NONE
-          else
-            SOME
-              ("MISMATCH\n  input: " ^ Seq.nth rs i ^ "\n  expected: "
-               ^ Real.fmt StringCvt.EXACT (Seq.nth rs_from_string i)
-               ^ "\n  but got: " ^ Real.fmt StringCvt.EXACT (Seq.nth results i)
-               ^ "\n"))
+          let
+            val expected = Seq.nth rs_from_string i
+            val got = Seq.nth results i
+          in
+            if cmp (#result expected, #result got) then
+              NONE
+            else
+              SOME
+                ("MISMATCH\n  input: " ^ Seq.nth rs i ^ "\n  expected: "
+                 ^ Real.fmt StringCvt.EXACT (#result expected)
+                 ^ " (num_chomped: " ^ Int.toString (#num_chomped expected)
+                 ^ ")\n  but got: " ^ Real.fmt StringCvt.EXACT (#result got)
+                 ^ " (num_chomped: " ^ Int.toString (#num_chomped got) ^ ")\n")
+          end)
       else
         SOME "overall length mismatch\n"
   in
@@ -101,13 +143,12 @@ val (rs_from_chars, num_fast) = Benchmark.run "from_chars" (fn () =>
 
     val num_fast = SeqBasis.reduce 5000 op+ 0 (0, n) (fn i =>
       let
-        val lo = Seq.nth offsets i
-        val hi = Seq.nth offsets (i + 1)
+        val (lo, hi) = nth i
 
-        val {result, fast_path, ...} = valOf
+        val {result, fast_path, num_chomped} = valOf
           (FR.from_chars_with_info {start = lo, stop = hi, get = Seq.nth chars})
       in
-        Array.update (results, i, result);
+        Array.update (results, i, {result = result, num_chomped = num_chomped});
         if fast_path then 1 else ( (*print (Seq.nth rs i ^ "\n");*)0)
       end)
   in
