@@ -7,12 +7,11 @@ Features a zero-allocation fast path that is as much as 8x faster than the
 Basis implementations of `Real.scan` and `Real.fromString`. The slow
 path currently falls back on `Real.scan`.
 
+`FastReal.from_string` is meant to be a drop-in replacement for
+`Real.fromString`. See below for example usage.
+
 Compatible with the [`smlpkg`](https://github.com/diku-dk/smlpkg)
 package manager.
-
-[**Status as of 6/12/2025**: Fast path seems to be working.
-Parse-back agrees with `Real.scan` on all inputs tested so far.
-Some more testing would be helpful; see issue [#1](https://github.com/shwestrick/sml-fast-real/issues/1).]
 
 ## Library Sources
 
