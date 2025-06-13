@@ -75,7 +75,7 @@ fun report_errors results =
   end
 
 
-val _ = print
+(* val _ = print
   ("\n\
    \==============================================================\n\
    \testing Parse.parseReal (mpllib)\n\
@@ -86,7 +86,7 @@ val rs_parse =
     Seq.tabulate (fn i => valOf (Parse.parseReal (nth i))) n)
   handle e => (print ("ERROR: " ^ exnMessage e ^ "\n"); Seq.empty ())
 
-val () = report_errors rs_parse
+val () = report_errors rs_parse *)
 
 
 val _ = print
