@@ -8,7 +8,9 @@ Basis implementations of `Real.scan` and `Real.fromString`. The slow
 path currently falls back on `Real.scan`.
 
 `FastReal.from_string` is meant to be a drop-in replacement for
-`Real.fromString`. See below for example usage.
+`Real.fromString`. Note that there is a disagreement
+between SML implementations on certain input strings, e.g.,
+see issue [#3](https://github.com/shwestrick/sml-fast-real/issues/3).
 
 Compatible with the [`smlpkg`](https://github.com/diku-dk/smlpkg)
 package manager.

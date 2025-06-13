@@ -49,8 +49,8 @@ val offsets =
     Seq.length (Seq.nth rs_charseqs i)))
 val chars = Seq.flatten rs_charseqs
 
-val () = print (Util.summarizeArraySlice 100 Char.toString chars ^ "\n")
-val () = print (Util.summarizeArraySlice 10 Int.toString offsets ^ "\n")
+(* val () = print (Util.summarizeArraySlice 100 Char.toString chars ^ "\n")
+val () = print (Util.summarizeArraySlice 10 Int.toString offsets ^ "\n") *)
 
 fun nth i =
   let
