@@ -10,6 +10,11 @@ val rs =
   Seq.tabulate
     (fn i => #1 (RealStringGen.gen (RealStringGen.seed_from_int (seed + i)))) n
 
+val total_length = SeqBasis.reduce 1000 op+ 0 (0, Seq.length rs) (fn i =>
+  String.size (Seq.nth rs i))
+val _ = print ("num inputs:  " ^ Int.toString n ^ "\n")
+val _ = print ("total chars: " ^ Int.toString total_length ^ "\n")
+
 (* to test that the num_chomped values are correct, let's put some garbage
  * characters after every real string. We'll use any character except for
  * a digit.
