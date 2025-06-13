@@ -37,7 +37,8 @@ average throughput: 650.8 MB/s    <----- ~7.5x improvement over Real.scan
 ```
 
 The next major TODO would be to use SIMD/vectorization for even more speedup.
-See issue #2. With SIMD I wouldn't be surprised if we could get 2-4x additional
+See issue [#2](https://github.com/shwestrick/sml-fast-real/issues/2).
+With SIMD I wouldn't be surprised if we could get 2-4x additional
 throughput, perhaps more. I wonder if eventually we could compete in raw
 performance with [`fast_float`](https://github.com/fastfloat/fast_float).
 
