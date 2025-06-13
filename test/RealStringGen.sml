@@ -1,6 +1,6 @@
-structure RealStringGen:
+structure RealStringGen :>
 sig
-  type seed = int
+  type seed
 
   (* This is the grammar from the Standard ML basis library:
    *   <real_str> ::= [+~-]?(<infnan>|<value>)
@@ -8,17 +8,28 @@ sig
    *   <value> ::= (<digs>.<digs>?|.<digs>)(e|E)[+~-]?<digs>?
    *   <digs> ::= [0-9]+
    *
-   * However, I believe this is incorrect:
+   * However, this is incorrect:
    *   - The (e|E) part is optional and only parsed if there is at least one
    *     digit that follows it
    *   - In the front part, before (e|E), it is possible to have no dot
+   *   - If there is a dot, there must be at least one decimal digit after
+   *     the dot. (We call this the "trailing dot". There is a parameter below
+   *     to allow for trailing dots, if desired. By default, trailing dots
+   *     are not generated.)
    *)
+
+  val seed_from_int: int -> seed
+  val split_seed: seed -> (int -> seed) * seed
+
   val gen: seed -> string * seed
+  val gen_with_params: {allow_trailing_dot: bool} -> seed -> string * seed
 
 end =
 struct
 
   type seed = int
+
+  fun seed_from_int x = Util.hash x
 
   local val d = 1000000000
   in
@@ -99,26 +110,21 @@ struct
     end
 
 
-  fun gen_digs_dot_maybe_digs desired_expected_length max_length seed =
+  fun gen_digs_dot_maybe_digs (params as {allow_trailing_dot: bool})
+    desired_expected_length max_length seed =
     let
       val (digs, seed) = gen_digs desired_expected_length max_length seed
       val (r, seed) = gen_real seed
     in
-      (* TODO: RE-ENABLE THE CASE COMMENTED OUT BELOW
-       * (This case seems to be permitted by the grammar but is not handled
-       * properly by MLton's Real.fromString implementation??)
-       *)
-
-      (* if r < 0.5 then
+      if allow_trailing_dot andalso r < 0.5 then
         (digs ^ ".", seed)
-      else *)
-
-      let
-        val (after_digs, seed) =
-          gen_digs desired_expected_length max_length seed
-      in
-        (digs ^ "." ^ after_digs, seed)
-      end
+      else
+        let
+          val (after_digs, seed) =
+            gen_digs desired_expected_length max_length seed
+        in
+          (digs ^ "." ^ after_digs, seed)
+        end
     end
 
 
@@ -141,11 +147,11 @@ struct
     end
 
 
-  fun gen_real_value seed =
+  fun gen_real_value params seed =
     let
       val (r, seed) = gen_real seed
       val (front, seed) =
-        if r < 0.5 then gen_digs_dot_maybe_digs 5 10 seed
+        if r < 0.5 then gen_digs_dot_maybe_digs params 5 10 seed
         else gen_dot_digs 10 15 seed
 
       val (r, seed) = gen_real seed
@@ -155,15 +161,17 @@ struct
     end
 
 
-  fun gen seed =
+  fun gen_with_params params seed =
     let
       val (front, seed) = gen_maybe_plus_minus seed
       val (r, seed) = gen_real seed
       val (rest, seed) =
-        if r < 0.1 then gen_infnan seed else gen_real_value seed
+        if r < 0.1 then gen_infnan seed else gen_real_value params seed
     in
       (front ^ rest, seed)
     end
 
+  fun gen seed =
+    gen_with_params {allow_trailing_dot = false} seed
 
 end

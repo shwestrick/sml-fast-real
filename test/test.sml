@@ -6,7 +6,9 @@ structure FR = FastReal(R64)
 val n = CommandLineArgs.parseInt "n" 1000000
 val seed = CommandLineArgs.parseInt "seed" 15210
 
-val rs = Seq.tabulate (fn i => #1 (RealStringGen.gen (Util.hash (seed + i)))) n
+val rs =
+  Seq.tabulate
+    (fn i => #1 (RealStringGen.gen (RealStringGen.seed_from_int (seed + i)))) n
 
 val rs_charseqs =
   Seq.map (fn s => Seq.tabulate (fn i => String.sub (s, i)) (String.size s)) rs
