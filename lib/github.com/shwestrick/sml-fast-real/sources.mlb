@@ -3,4 +3,5 @@ local
   FastReal.sml
 in
   functor FastReal
+  digit_parse.sml
 end

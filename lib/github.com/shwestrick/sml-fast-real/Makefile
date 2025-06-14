@@ -1,11 +1,4 @@
-CC = clang
-CFLAGS = -O3 -target arm64-apple-macos -isysroot $(shell xcrun --show-sdk-path)
-LDFLAGS = -framework System
-
-all: libdigitparse.dylib
-
-libdigitparse.dylib: digit_parse_neon.c
-	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
-
+all:
+	mlton -default-ann 'allowFFI true' -export-header export.h  digit_parse.sml digit_parse_neon.c
 clean:
-	rm -f libdigitparse.dylib
+	rm digit_parse
