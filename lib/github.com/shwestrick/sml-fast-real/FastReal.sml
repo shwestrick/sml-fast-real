@@ -63,6 +63,7 @@ struct
   (* read digits and accumulate into `acc`, continuing until we see a
    * non-digit char, or until we hit `stop`
    *)
+   (* TODO: Vectorize this using SIMD instrinsics *)
   fun push_digit_chars (acc: Word64.word)
     {start: int, stop: int, get: int -> char} : (Word64.word * int) =
     let
