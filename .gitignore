@@ -1,1 +1,6 @@
 *.dylib
+*.o
+*.DS_Store
+millet.toml
+sources.mlb 
+#ignoring only the top level one used for millet

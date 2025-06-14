@@ -2,6 +2,8 @@ structure DigitParse =
 struct
   val parse = _import "neon_parse_digits" public:
         (string * int * Word64.word ref * int ref) -> unit;
+  
+  val simdAvailable = true; (* TODO: Do an env check to see if we can use SIMD *)
 
   fun parseString s =
     let
@@ -27,4 +29,4 @@ fun test () =
         print "Done\n"
     end
 
-val _ = test ()
+(* val _ = test () *)
