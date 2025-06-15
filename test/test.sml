@@ -162,3 +162,12 @@ val (rs_from_chars, num_fast) = Benchmark.run "from_chars" (fn () =>
 
 val _ = print ("NUM FAST " ^ Int.toString num_fast ^ "\n")
 val () = report_errors rs_from_chars
+
+(* val () = print "SANITY CHECK: 123.456e+\n";
+val test_str = "123.456e+"
+fun reader i = if i >= String.size test_str then NONE else SOME (String.sub (test_str, i), i + 1)
+val (r, stop) = valOf (Real.scan reader 0)
+val _ = print ("Real.scan num_chomped: " ^ Int.toString stop ^ "\n")
+val {num_chomped, ...} = valOf (FR.from_chars_with_info 
+  {start = 0, stop = String.size test_str, get = fn i => String.sub (test_str, i)})
+val _ = print ("FastReal num_chomped: " ^ Int.toString num_chomped ^ "\n") *)
