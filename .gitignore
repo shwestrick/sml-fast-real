@@ -1,5 +1,6 @@
 *.dylib
 *.o
+*.txt
 *.DS_Store
 millet.toml
 sources.mlb 

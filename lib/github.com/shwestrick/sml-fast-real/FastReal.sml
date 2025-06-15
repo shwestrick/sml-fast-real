@@ -59,41 +59,70 @@ struct
     in
       loop start
     end
+  
+  val itos = Int.toString
+  val btos = fn true => "true" | false => "false"
+  val wtos = Word64.fmt StringCvt.DEC
+
+  fun chars_to_substring {start: int, stop: int, get: int -> char} i j = 
+    let
+      fun loop acc k = 
+        if k >= j then String.implode (rev acc)
+        else loop (get k :: acc) (k + 1)
+    in
+      loop [] i
+    end
 
   (* read digits and accumulate into `acc`, continuing until we see a
    * non-digit char, or until we hit `stop`
    *)
-  (* TODO: Vectorize this using SIMD instrinsics *)
-
-  fun test_simd () =
-    if DigitParse.simdAvailable then
-      raise Fail "SIMD detected"
-    else
-      ()
-
-
   fun push_digit_chars (acc: Word64.word)
     {start: int, stop: int, get: int -> char} : (Word64.word * int) =
     let
-      val _ = test_simd ()
-      fun loop (acc, i) =
+      fun try_simd_parse () = 
+        if DigitParse.simdAvailable then
+          let
+            fun find_digit_end i =
+              if i >= stop then i
+              else if is_digit_char (get i) then find_digit_end (i + 1)
+              else i
+            val digit_end = find_digit_end start
+            (* val _ = print ("digit_end: " ^ itos digit_end ^ "\n") *)
+          in
+            if digit_end > start then
+            let
+              val digit_str = chars_to_substring {start = start, stop = digit_end, get = get} start digit_end
+              val (simd_result, simd_count) = DigitParse.parseString digit_str
+              fun power_of_10 n =
+                if n <= 0 then 0w1
+                else Word64.* (0w10, power_of_10 (n - 1))
+              val combined_acc = Word64.* (acc, power_of_10 simd_count) + simd_result
+            in
+              SOME (combined_acc, start + simd_count)
+            end
+            else
+              NONE
+          end
+        else
+          NONE
+
+      fun scalar_loop (acc, i) =
         if i >= stop then
           (acc, i)
         else
           let
             val c = get i
           in
-            if is_digit_char c then loop (push_digit_char acc c, i + 1)
+            if is_digit_char c then scalar_loop (push_digit_char acc c, i + 1)
             else (acc, i)
           end
     in
-      loop (acc, start)
+      case try_simd_parse () of
+        SOME result => result
+      | NONE => scalar_loop (acc, start)
     end
 
 
-  val itos = Int.toString
-  val btos = fn true => "true" | false => "false"
-  val wtos = Word64.fmt StringCvt.DEC
 
 
   val min_exponent_fast_path =

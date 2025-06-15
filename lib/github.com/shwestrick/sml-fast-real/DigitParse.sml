@@ -1,4 +1,5 @@
 structure DigitParse =
+(* TODO: Probably rename to SIMDParse *)
 struct
   val parse = _import "neon_parse_digits" public:
         (string * int * Word64.word ref * int ref) -> unit;
