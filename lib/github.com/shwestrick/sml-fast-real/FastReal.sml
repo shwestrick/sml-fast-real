@@ -318,10 +318,38 @@ struct
     end
 
 
+
+  (* ========================================================================
+   * SIMD friendly copy of from_chars_with_info using char ArraySlice.slice
+   *)
+
+  exception FromSliceError
+
+  fun skip_whitespace_slice {arr : char array, start : int, stop : int} =
+    raise Fail "TODO"
+  
+  fun try_parse_string_case_insensitive_slice {lowercase_desired : char array, start : int, stop : int} =
+    raise Fail "TODO"
+  
+  fun try_parse_inf_or_nan_slice {arr : char array, start : int, stop : int, i : int, is_negative : bool} =
+    raise Fail "TODO"
+
+  fun push_digit_chars_simd (acc : Word64.word) (slice : char ArraySlice.slice) {arr : char array, start : int, stop : int} : (Word64.word * int) =
+    raise Fail "TODO"
+
+  fun from_slice_with_info_maybe_error (slice : char ArraySlice.slice)  =
+    raise Fail "TODO"
+
+  fun from_slice_with_info (slice : char ArraySlice.slice) :result_with_info option =
+    from_slice_with_info_maybe_error slice
+    handle FromSliceError => NONE
+
+  fun from_slice (slice : char ArraySlice.slice) :R.real option =
+    Option.map #result (from_slice_with_info slice)
+
   fun from_chars_with_info xxx =
     from_chars_with_info_maybe_error xxx
     handle FromCharsError => NONE
-
 
   fun from_chars xxx =
     Option.map #result (from_chars_with_info xxx)
@@ -333,5 +361,9 @@ struct
   fun from_string s =
     from_chars
       {start = 0, stop = String.size s, get = fn i => String.sub (s, i)}
+
+  fun from_string_simd s =
+    from_slice_with_info (ArraySlice.full s)
+
 
 end
