@@ -10,6 +10,9 @@ val rs =
   Seq.tabulate
     (fn i => #1 (RealStringGen.gen (RealStringGen.seed_from_int (seed + i)))) n
 
+(* Sneak-peek of rs (which is a Seq of strings) *)
+val () = print (Util.summarizeArraySlice 100 (fn r => r) rs ^ "\n")
+
 val total_length = SeqBasis.reduce 1000 op+ 0 (0, Seq.length rs) (fn i =>
   String.size (Seq.nth rs i))
 val _ = print ("num inputs:  " ^ Int.toString n ^ "\n")
@@ -54,8 +57,8 @@ val offsets =
     Seq.length (Seq.nth rs_charseqs i)))
 val chars = Seq.flatten rs_charseqs
 
-(* val () = print (Util.summarizeArraySlice 100 Char.toString chars ^ "\n")
-val () = print (Util.summarizeArraySlice 10 Int.toString offsets ^ "\n") *)
+val () = print (Util.summarizeArraySlice 100 Char.toString chars ^ "\n")
+val () = print (Util.summarizeArraySlice 10 Int.toString offsets ^ "\n")
 
 fun nth i =
   let
@@ -82,6 +85,7 @@ val rs_from_string = Benchmark.run "Real.scan" (fn () =>
            if i >= hi then NONE else SOME (Seq.nth chars i, i + 1)
          val (r, stop) = valOf (Real.scan reader lo)
        in
+          if stop <> hi then print ("MISMATCH: " ^ Real.fmt StringCvt.EXACT r ^ "\n") else ();
          {result = r, num_chomped = stop - lo}
        end) n)
 
@@ -162,3 +166,16 @@ val (rs_from_chars, num_fast) = Benchmark.run "from_chars" (fn () =>
 
 val _ = print ("NUM FAST " ^ Int.toString num_fast ^ "\n")
 val () = report_errors rs_from_chars
+
+(* Print result of results *)
+val () = print (Util.summarizeArraySlice 100 (fn r => Real.fmt StringCvt.EXACT (#result r)) rs_from_chars ^ "\n")
+
+
+val () = print "SANITY CHECK: 123.456e+\n";
+val test_str = "123.456e+"
+fun reader i = if i >= String.size test_str then NONE else SOME (String.sub (test_str, i), i + 1)
+val (r, stop) = valOf (Real.scan reader 0)
+val _ = print ("Real.scan num_chomped: " ^ Int.toString stop ^ "\n")
+val {num_chomped, ...} = valOf (FR.from_chars_with_info 
+  {start = 0, stop = String.size test_str, get = fn i => String.sub (test_str, i)})
+val _ = print ("FastReal num_chomped: " ^ Int.toString num_chomped ^ "\n")
