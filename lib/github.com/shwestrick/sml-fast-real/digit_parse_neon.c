@@ -5,7 +5,7 @@
 #include "export.h"
 
 
-void neon_parse_digits(char const* input, size_t len, uint64_t* out_acc, int* out_count) {
+int neon_parse_digits(char const* input, size_t len, uint64_t* out_acc) {
     uint64_t acc = 0;
     int count = 0;
     size_t i = 0;
@@ -42,5 +42,5 @@ void neon_parse_digits(char const* input, size_t len, uint64_t* out_acc, int* ou
     }
 
     *out_acc = acc;
-    *out_count = count;
+    return count;
 }

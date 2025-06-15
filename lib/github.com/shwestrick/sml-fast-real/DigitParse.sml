@@ -2,17 +2,16 @@ structure DigitParse =
 (* TODO: Probably rename to SIMDParse *)
 struct
   val parse = _import "neon_parse_digits" public:
-        (string * int * Word64.word ref * int ref) -> unit;
+        (string * int * Word64.word ref) -> int;
   
   val simdAvailable = true; (* TODO: Do an env check to see if we can use SIMD *)
 
   fun parseString s =
     let
       val accRef = ref 0w0 : Word64.word ref
-      val countRef = ref 0 : int ref
-      val _ = parse (s, String.size s, accRef, countRef)
+      val count = parse (s, String.size s, accRef)
     in
-      (!accRef, !countRef)
+      (!accRef, count)
     end
 end
 
