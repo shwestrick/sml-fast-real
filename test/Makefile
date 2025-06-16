@@ -21,5 +21,11 @@ parse_arg: $(SML_FAST_REAL_SOURCES) parse_arg.sml parse_arg.mlb
 parse_arg.mpl: $(SML_FAST_REAL_SOURCES) parse_arg.sml parse_arg.mlb
 	mpl $(COMPILE_FLAGS) -output parse_arg.mpl parse_arg.mlb
 
+edge: $(SML_FAST_REAL_SOURCES) lib edge_cases.sml edge_cases.mlb
+	mlton $(COMPILE_FLAGS) edge_cases.mlb
+
+edge.mpl: $(SML_FAST_REAL_SOURCES) edge_cases.sml edge_cases.mlb
+	mpl $(COMPILE_FLAGS) -output edge.mpl edge_cases.mlb
+
 clean:
-	rm -f test test.mpl parse_arg parse_arg.mpl
+	rm -f test test.mpl parse_arg parse_arg.mpl edge_cases edge_cases.mpl edge.mpl
