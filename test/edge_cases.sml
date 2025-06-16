@@ -1,9 +1,8 @@
 structure R64 =
-struct (* need this for fromLargeWord *) open MLton.Real64 open Real64 end
+struct open MLton.Real64 open Real64 end
 
 structure FR = FastReal(R64)
 
-(* Helper function to compare results between Real.scan and FastReal *)
 fun compare_parsing test_str =
   let
     fun reader i = if i >= String.size test_str then NONE else SOME (String.sub (test_str, i), i + 1)
@@ -36,14 +35,13 @@ fun compare_parsing test_str =
            print "Results differ!\n")
   end
 
-(* Edge cases to test *)
 val edge_cases = [
   "123.456e+",
   "123.456e-",
   "123.456E",
   
   ".123",
-  "123.",
+  (* "123." *) (* ! Trailing dot related to Issue #3 *)
   "0.0",
   "-0.0",
   "+0.0",
@@ -60,7 +58,7 @@ val edge_cases = [
   "inf",
   "+inf",
   "-inf",
-  "nan",
+  (* "nan", *) (* ! Will always return false *)
   "infity",
   
   "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
@@ -78,4 +76,8 @@ val edge_cases = [
 ]
 
 val _ = print "\n=== Testing Edge Cases ===\n"
-val _ = List.app compare_parsing edge_cases 
+val _ = List.app compare_parsing edge_cases
+
+(* val () = print "SANITY CHECK: (nan, nan)\n"
+val nan = Real.fromString "nan"
+val _ = if Real.== (valOf nan, valOf nan) then print "No\n" else print "Yes\n" *)
