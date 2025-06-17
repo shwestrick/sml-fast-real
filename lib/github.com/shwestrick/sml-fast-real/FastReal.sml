@@ -17,6 +17,9 @@ sig
 
   val from_string: string -> R.real option
   val from_string_with_info: string -> result_with_info option
+
+  val from_slice: char ArraySlice.slice -> R.real option
+  val from_slice_with_info: char ArraySlice.slice -> result_with_info option
 end =
 struct
 
@@ -317,35 +320,431 @@ struct
 
     end
 
-
-
-  (* ========================================================================
-   * SIMD friendly copy of from_chars_with_info using char ArraySlice.slice
-   *)
-
   exception FromSliceError
 
-  fun skip_whitespace_slice {arr : char array, start : int, stop : int} =
-    raise Fail "TODO"
-  
-  fun try_parse_string_case_insensitive_slice {lowercase_desired : char array, start : int, stop : int} =
-    raise Fail "TODO"
-  
-  fun try_parse_inf_or_nan_slice {arr : char array, start : int, stop : int, i : int, is_negative : bool} =
-    raise Fail "TODO"
+  fun from_slice_with_info_maybe_error (slice : char ArraySlice.slice) =
+  let
+    val (arr, slice_start, slice_len) = ArraySlice.base slice
+    
+    val get = fn i => Array.sub (arr, slice_start + i)
+    
+    val start = 0
+    val stop = slice_len
+    
+    val i = skip_whitespace {start = start, stop = stop, get = get}
+    val () = if i >= stop then raise FromSliceError else ()
 
-  fun push_digit_chars_simd (acc : Word64.word) (slice : char ArraySlice.slice) {arr : char array, start : int, stop : int} : (Word64.word * int) =
-    raise Fail "TODO"
+    val (is_negative, i) =
+      if get i = #"-" orelse get i = #"~" then (true, i + 1)
+      else if get i = #"+" then (false, i + 1)
+      else (false, i)
 
-  fun from_slice_with_info_maybe_error (slice : char ArraySlice.slice)  =
-    raise Fail "TODO"
+    val (mantissa, i') =
+      push_digit_chars 0w0 {start = i, stop = stop, get = get}
+    val digit_count = i' - i
+    val i = i'
 
-  fun from_slice_with_info (slice : char ArraySlice.slice) :result_with_info option =
-    from_slice_with_info_maybe_error slice
+    val (has_dot, i) =
+      if i < stop andalso get i = #"." then (true, i + 1) else (false, i)
+    
+    val (mantissa, i') =
+      push_digit_chars mantissa {start = i, stop = stop, get = get}
+    val digit_count_past_dot = i' - i
+    val exponent = ~digit_count_past_dot
+    val digit_count = digit_count + digit_count_past_dot
+    val i = i'
+    
+    val (has_explicit_exponent, explicit_exponent_digit_count, exponent, i) =
+      if i >= stop orelse (get i <> #"e" andalso get i <> #"E") then
+        (false, 0, exponent, i)
+      else
+        let
+          val i = i + 1
+
+          val (explicit_exponent_is_negative, i) =
+            if i < stop andalso (get i = #"-" orelse get i = #"~") then (true, i + 1)
+            else if i < stop andalso get i = #"+" then (false, i + 1)
+            else (false, i)
+
+          val (explicit_exponent_num, i') =
+            push_digit_chars 0w0 {start = i, stop = stop, get = get}
+          val explicit_exponent_digit_count = i' - i
+          val i = i'
+
+          val explicit_exponent_num = Word64.toIntX explicit_exponent_num
+          val explicit_exponent_num =
+            if explicit_exponent_is_negative then ~explicit_exponent_num
+            else explicit_exponent_num
+
+          val exponent = exponent + explicit_exponent_num
+        in
+          (true, explicit_exponent_digit_count, exponent, i)
+        end
+  in
+    if
+      digit_count > 0 andalso digit_count <= 19
+      andalso explicit_exponent_digit_count <= 19
+      andalso min_exponent_fast_path <= exponent
+      andalso exponent <= max_exponent_fast_path
+      andalso mantissa <= max_mantissa_fast_path
+    then
+      let
+        val value = R.fromLargeWord (Word64.toLarge mantissa)
+        val value =
+          if exponent < 0 then R./ (value, exact_power_of_ten (~exponent))
+          else R.* (value, exact_power_of_ten exponent)
+        val value = if is_negative then R.~ value else value
+      in
+        SOME {result = value, num_chomped = i, fast_path = true}
+      end
+    else if
+      digit_count = 0
+    then
+      if not has_explicit_exponent andalso i < stop then
+        maybe_parse_inf_or_nan
+          { start = start  (* now 0 *)
+          , stop = stop    (* now slice_len *)
+          , get = get
+          , i = i
+          , is_negative = is_negative
+          }
+      else
+        NONE
+    else
+      let
+        fun reader i =
+          if i >= stop then NONE else SOME (get i, i + 1)
+      in
+        Option.map
+          (fn (r, i') =>
+             {result = r, num_chomped = i', fast_path = false})
+          (R.scan reader 0)  (* start from 0 in relative coordinates *)
+      end
+  end
+
+  fun from_slice_with_info_maybe_error_v2 (slice : char ArraySlice.slice) =
+  let
+    val (arr, slice_start, slice_len) = ArraySlice.base slice
+    val slice_stop = slice_start + slice_len
+    
+    fun skip_whitespace_inline start =
+      let
+        fun loop i =
+          if i >= slice_stop then i
+          else if Char.isSpace (Array.sub (arr, i)) then loop (i + 1)
+          else i
+      in
+        loop start
+      end
+    
+    fun push_digit_chars_inline acc start_pos =
+      let
+        fun scalar_loop (acc, i) =
+          if i >= slice_stop then
+            (acc, i)
+          else
+            let
+              val c = Array.sub (arr, i)
+            in
+              if is_digit_char c then 
+                scalar_loop (push_digit_char acc c, i + 1)
+              else (acc, i)
+            end
+      in
+        scalar_loop (acc, start_pos)
+      end
+    
+    fun try_parse_string_case_insensitive_inline lowercase_desired start_pos =
+      let
+        val n = String.size lowercase_desired
+        fun loop i =
+          if i = n then true
+          else if start_pos + i >= slice_stop then false
+          else if Char.toLower (Array.sub (arr, start_pos + i)) = String.sub (lowercase_desired, i)
+          then loop (i + 1)
+          else false
+      in
+        slice_stop - start_pos >= n andalso loop 0
+      end
+    
+    fun maybe_parse_inf_or_nan_inline i is_negative =
+      if i >= slice_stop then NONE
+      else
+        let
+          val c = Char.toLower (Array.sub (arr, i))
+        in
+          if try_parse_string_case_insensitive_inline "nan" i then
+            SOME {result = nan, num_chomped = i - slice_start + 3, fast_path = true}
+          else if try_parse_string_case_insensitive_inline "inf" i then
+            let
+              val is_full_word = try_parse_string_case_insensitive_inline "inity" (i + 3)
+            in
+              SOME
+                { result = negify is_negative R.posInf
+                , num_chomped = i - slice_start + (if is_full_word then 8 else 3)
+                , fast_path = true
+                }
+            end
+          else
+            NONE
+        end
+    
+    val i = skip_whitespace_inline slice_start
+    val () = if i >= slice_stop then raise FromSliceError else ()
+
+    val (is_negative, i) =
+      if Array.sub (arr, i) = #"-" orelse Array.sub (arr, i) = #"~" then (true, i + 1)
+      else if Array.sub (arr, i) = #"+" then (false, i + 1)
+      else (false, i)
+
+    val (mantissa, i') = push_digit_chars_inline 0w0 i
+    val digit_count = i' - i
+    val i = i'
+
+    val (has_dot, i) =
+      if i < slice_stop andalso Array.sub (arr, i) = #"." then (true, i + 1) else (false, i)
+    
+    val (mantissa, i') = push_digit_chars_inline mantissa i
+    val digit_count_past_dot = i' - i
+    val exponent = ~digit_count_past_dot
+    val digit_count = digit_count + digit_count_past_dot
+    val i = i'
+
+    val (has_explicit_exponent, explicit_exponent_digit_count, exponent, i) =
+      if i >= slice_stop orelse (Array.sub (arr, i) <> #"e" andalso Array.sub (arr, i) <> #"E") then
+        (false, 0, exponent, i)
+      else
+        let
+          val i = i + 1
+
+          val (explicit_exponent_is_negative, i) =
+            if i < slice_stop andalso (Array.sub (arr, i) = #"-" orelse Array.sub (arr, i) = #"~") then (true, i + 1)
+            else if i < slice_stop andalso Array.sub (arr, i) = #"+" then (false, i + 1)
+            else (false, i)
+
+          val (explicit_exponent_num, i') = push_digit_chars_inline 0w0 i
+          val explicit_exponent_digit_count = i' - i
+          val i = i'
+
+          val explicit_exponent_num = Word64.toIntX explicit_exponent_num
+          val explicit_exponent_num =
+            if explicit_exponent_is_negative then ~explicit_exponent_num
+            else explicit_exponent_num
+
+          val exponent = exponent + explicit_exponent_num
+        in
+          (true, explicit_exponent_digit_count, exponent, i)
+        end
+  in
+    if
+      digit_count > 0 andalso digit_count <= 19
+      andalso explicit_exponent_digit_count <= 19
+      andalso min_exponent_fast_path <= exponent
+      andalso exponent <= max_exponent_fast_path
+      andalso mantissa <= max_mantissa_fast_path
+    then
+      let
+        val value = R.fromLargeWord (Word64.toLarge mantissa)
+        val value =
+          if exponent < 0 then R./ (value, exact_power_of_ten (~exponent))
+          else R.* (value, exact_power_of_ten exponent)
+        val value = if is_negative then R.~ value else value
+      in
+        SOME {result = value, num_chomped = i - slice_start, fast_path = true}
+      end
+
+    else if digit_count = 0 then
+      if not has_explicit_exponent then
+        maybe_parse_inf_or_nan_inline i is_negative
+      else
+        NONE
+
+    else
+      let
+        fun reader abs_i =
+          if abs_i >= slice_stop then NONE 
+          else SOME (Array.sub (arr, abs_i), abs_i + 1)
+      in
+        Option.map
+          (fn (r, final_abs_i) =>
+             {result = r, num_chomped = final_abs_i - slice_start, fast_path = false})
+          (R.scan reader slice_start)
+      end
+  end
+
+  fun from_slice_with_info_simd (slice : char ArraySlice.slice) =
+  let
+    fun push_digit_chars_simd (acc: Word64.word) (arr: char array) (start_abs: int) (stop_abs: int) : (Word64.word * int) =
+      let
+        fun scalar_fallback (acc, i) =
+          if i >= stop_abs then (acc, i)
+          else
+            let
+              val c = Array.sub (arr, i)
+            in
+              if is_digit_char c then 
+                scalar_fallback (push_digit_char acc c, i + 1)
+              else (acc, i)
+            end
+
+        fun simd_accelerated_loop (acc, i) =
+          if i + 8 <= stop_abs then
+            let
+              val digit_block = SIMDParse.neon_parse (arr, i)
+            in
+              if Word64.compare (digit_block, Word64.fromInt ~1) = EQUAL then
+                scalar_fallback (acc, i)
+              else
+                let
+                  val new_acc = Word64.* (acc, 0w100000000) + digit_block
+                in
+                  simd_accelerated_loop (new_acc, i + 8)
+                end
+            end
+          else
+            scalar_fallback (acc, i)
+      in
+        simd_accelerated_loop (acc, start_abs)
+      end
+    
+    val (arr, slice_start, slice_len) = ArraySlice.base slice
+    val slice_stop = slice_start + slice_len
+    
+    fun skip_whitespace_inline start =
+      let
+        fun loop i =
+          if i >= slice_stop then i
+          else if Char.isSpace (Array.sub (arr, i)) then loop (i + 1)
+          else i
+      in
+        loop start
+      end
+    
+    fun try_parse_string_case_insensitive_inline lowercase_desired start_pos =
+      let
+        val n = String.size lowercase_desired
+        fun loop i =
+          if i = n then true
+          else if start_pos + i >= slice_stop then false
+          else if Char.toLower (Array.sub (arr, start_pos + i)) = String.sub (lowercase_desired, i)
+          then loop (i + 1)
+          else false
+      in
+        slice_stop - start_pos >= n andalso loop 0
+      end
+    
+    fun maybe_parse_inf_or_nan_inline i is_negative =
+      if i >= slice_stop then NONE
+      else
+        let
+          val c = Char.toLower (Array.sub (arr, i))
+        in
+          if try_parse_string_case_insensitive_inline "nan" i then
+            SOME {result = nan, num_chomped = i - slice_start + 3, fast_path = true}
+          else if try_parse_string_case_insensitive_inline "inf" i then
+            let
+              val is_full_word = try_parse_string_case_insensitive_inline "inity" (i + 3)
+            in
+              SOME
+                { result = negify is_negative R.posInf
+                , num_chomped = i - slice_start + (if is_full_word then 8 else 3)
+                , fast_path = true
+                }
+            end
+          else
+            NONE
+        end
+    
+    val i = skip_whitespace_inline slice_start
+    val () = if i >= slice_stop then raise FromSliceError else ()
+
+    val (is_negative, i) =
+      if Array.sub (arr, i) = #"-" orelse Array.sub (arr, i) = #"~" then (true, i + 1)
+      else if Array.sub (arr, i) = #"+" then (false, i + 1)
+      else (false, i)
+
+    val (mantissa, i') = push_digit_chars_simd 0w0 arr i slice_stop
+    val digit_count = i' - i
+    val i = i'
+
+    val (has_dot, i) =
+      if i < slice_stop andalso Array.sub (arr, i) = #"." then (true, i + 1) else (false, i)
+    
+    val (mantissa, i') = push_digit_chars_simd mantissa arr i slice_stop
+    val digit_count_past_dot = i' - i
+    val exponent = ~digit_count_past_dot
+    val digit_count = digit_count + digit_count_past_dot
+    val i = i'
+
+    val (has_explicit_exponent, explicit_exponent_digit_count, exponent, i) =
+      if i >= slice_stop orelse (Array.sub (arr, i) <> #"e" andalso Array.sub (arr, i) <> #"E") then
+        (false, 0, exponent, i)
+      else
+        let
+          val i = i + 1
+
+          val (explicit_exponent_is_negative, i) =
+            if i < slice_stop andalso (Array.sub (arr, i) = #"-" orelse Array.sub (arr, i) = #"~") then (true, i + 1)
+            else if i < slice_stop andalso Array.sub (arr, i) = #"+" then (false, i + 1)
+            else (false, i)
+
+          val (explicit_exponent_num, i') = push_digit_chars_simd 0w0 arr i slice_stop
+          val explicit_exponent_digit_count = i' - i
+          val i = i'
+
+          val explicit_exponent_num = Word64.toIntX explicit_exponent_num
+          val explicit_exponent_num =
+            if explicit_exponent_is_negative then ~explicit_exponent_num
+            else explicit_exponent_num
+
+          val exponent = exponent + explicit_exponent_num
+        in
+          (true, explicit_exponent_digit_count, exponent, i)
+        end
+  in
+    if
+      digit_count > 0 andalso digit_count <= 19
+      andalso explicit_exponent_digit_count <= 19
+      andalso min_exponent_fast_path <= exponent
+      andalso exponent <= max_exponent_fast_path
+      andalso mantissa <= max_mantissa_fast_path
+    then
+      let
+        val value = R.fromLargeWord (Word64.toLarge mantissa)
+        val value =
+          if exponent < 0 then R./ (value, exact_power_of_ten (~exponent))
+          else R.* (value, exact_power_of_ten exponent)
+        val value = if is_negative then R.~ value else value
+      in
+        SOME {result = value, num_chomped = i - slice_start, fast_path = true}
+      end
+
+    else if digit_count = 0 then
+      if not has_explicit_exponent then
+        maybe_parse_inf_or_nan_inline i is_negative
+      else
+        NONE
+
+    else
+      let
+        fun reader abs_i =
+          if abs_i >= slice_stop then NONE 
+          else SOME (Array.sub (arr, abs_i), abs_i + 1)
+      in
+        Option.map
+          (fn (r, final_abs_i) =>
+             {result = r, num_chomped = final_abs_i - slice_start, fast_path = false})
+          (R.scan reader slice_start)
+      end
+  end 
+
+
+  fun from_slice_with_info (slice : char ArraySlice.slice) : result_with_info option =
+    from_slice_with_info_simd slice
     handle FromSliceError => NONE
 
-  fun from_slice (slice : char ArraySlice.slice) :R.real option =
-    Option.map #result (from_slice_with_info slice)
+  fun from_slice xxx =
+    Option.map #result (from_slice_with_info xxx)
 
   fun from_chars_with_info xxx =
     from_chars_with_info_maybe_error xxx
@@ -361,9 +760,6 @@ struct
   fun from_string s =
     from_chars
       {start = 0, stop = String.size s, get = fn i => String.sub (s, i)}
-
-  fun from_string_simd s =
-    from_slice_with_info (ArraySlice.full s)
 
 
 end

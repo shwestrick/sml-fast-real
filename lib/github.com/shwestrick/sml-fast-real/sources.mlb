@@ -7,7 +7,7 @@ end *)
 
 local
   $(SML_LIB)/basis/basis.mlb
-  DigitParse.sml
+  SIMDParse.sml
   FastReal.sml
 in
   functor FastReal

@@ -1,5 +1,5 @@
-#ifndef __DIGIT_PARSE_ML_H__
-#define __DIGIT_PARSE_ML_H__
+#ifndef __SIMDPARSE_ML_H__
+#define __SIMDPARSE_ML_H__
 
 /* Copyright (C) 2004-2007 Henry Cejtin, Matthew Fluet, Suresh
  *    Jagannathan, and Stephen Weeks.
@@ -132,23 +132,23 @@ typedef Pointer Objptr;
 
 #endif /* _MLTON_EXPORT_H_ */
 
-#if !defined(PART_OF_DIGIT_PARSE) && \
-    !defined(STATIC_LINK_DIGIT_PARSE) && \
-    !defined(DYNAMIC_LINK_DIGIT_PARSE)
-#define PART_OF_DIGIT_PARSE
+#if !defined(PART_OF_SIMDPARSE) && \
+    !defined(STATIC_LINK_SIMDPARSE) && \
+    !defined(DYNAMIC_LINK_SIMDPARSE)
+#define PART_OF_SIMDPARSE
 #endif
 
-#if defined(PART_OF_DIGIT_PARSE)
+#if defined(PART_OF_SIMDPARSE)
 #define MLLIB_PRIVATE(x) PRIVATE x
 #define MLLIB_PUBLIC(x) PUBLIC x
-#elif defined(STATIC_LINK_DIGIT_PARSE)
+#elif defined(STATIC_LINK_SIMDPARSE)
 #define MLLIB_PRIVATE(x)
 #define MLLIB_PUBLIC(x) PUBLIC x
-#elif defined(DYNAMIC_LINK_DIGIT_PARSE)
+#elif defined(DYNAMIC_LINK_SIMDPARSE)
 #define MLLIB_PRIVATE(x)
 #define MLLIB_PUBLIC(x) EXTERNAL x
 #else
-#error Must specify linkage for digit_parse
+#error Must specify linkage for SIMDParse
 #define MLLIB_PRIVATE(x)
 #define MLLIB_PUBLIC(x)
 #endif
@@ -165,4 +165,4 @@ extern "C" {
 }
 #endif
 
-#endif /* __DIGIT_PARSE_ML_H__ */
+#endif /* __SIMDPARSE_ML_H__ */

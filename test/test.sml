@@ -11,7 +11,7 @@ val rs =
     (fn i => #1 (RealStringGen.gen (RealStringGen.seed_from_int (seed + i)))) n
 
 (* Sneak-peek of rs (which is a Seq of strings) *)
-val () = print (Util.summarizeArraySlice 100 (fn r => r) rs ^ "\n")
+(* val () = print (Util.summarizeArraySlice 100 (fn r => r) rs ^ "\n") *)
 
 val total_length = SeqBasis.reduce 1000 op+ 0 (0, Seq.length rs) (fn i =>
   String.size (Seq.nth rs i))
@@ -55,10 +55,10 @@ val rs_charseqs =
 val offsets =
   ArraySlice.full (SeqBasis.scan 1000 op+ 0 (0, Seq.length rs_charseqs) (fn i =>
     Seq.length (Seq.nth rs_charseqs i)))
-val chars = Seq.flatten rs_charseqs
+val chars : char ArraySlice.slice = Seq.flatten rs_charseqs
 
-val () = print (Util.summarizeArraySlice 100 Char.toString chars ^ "\n")
-val () = print (Util.summarizeArraySlice 10 Int.toString offsets ^ "\n")
+(* val () = print (Util.summarizeArraySlice 100 Char.toString chars ^ "\n") *)
+(* val () = print (Util.summarizeArraySlice 10 Int.toString offsets ^ "\n") *)
 
 fun nth i =
   let
@@ -70,10 +70,10 @@ fun nth i =
 
 
 val _ = print
-  ("\n\
+  "\n\
    \==============================================================\n\
    \testing Real.scan (Standard ML basis function)\n\
-   \==============================================================\n")
+   \==============================================================\n"
 
 val rs_from_string = Benchmark.run "Real.scan" (fn () =>
   Seq.tabulate
@@ -121,7 +121,7 @@ fun report_errors results =
         SOME "overall length mismatch\n"
   in
     case error of
-      NONE => print ("ALL CORRECT? yes\n")
+      NONE => print "ALL CORRECT? yes\n"
     | SOME e => print ("ALL CORRECT? no!\n" ^ e)
   end
 
@@ -141,12 +141,12 @@ val () = report_errors rs_parse *)
 
 
 val _ = print
-  ("\n\
+  "\n\
    \==============================================================\n\
    \testing FastReal.from_chars_with_info\n\
-   \==============================================================\n")
+   \==============================================================\n"
 
-val (rs_from_chars, num_fast) = Benchmark.run "from_chars" (fn () =>
+val (rs_from_chars : {num_chomped : int, result : real} ArraySlice.slice, num_fast) = Benchmark.run "from_chars" (fn () =>
   let
     val results = ForkJoin.alloc n
 
@@ -158,7 +158,7 @@ val (rs_from_chars, num_fast) = Benchmark.run "from_chars" (fn () =>
           (FR.from_chars_with_info {start = lo, stop = hi, get = Seq.nth chars})
       in
         Array.update (results, i, {result = result, num_chomped = num_chomped});
-        if fast_path then 1 else ( (*print (Seq.nth rs i ^ "\n");*)0)
+        if fast_path then 1 else  (*print (Seq.nth rs i ^ "\n");*)0
       end)
   in
     (ArraySlice.full results, num_fast)
@@ -168,14 +168,30 @@ val _ = print ("NUM FAST " ^ Int.toString num_fast ^ "\n")
 val () = report_errors rs_from_chars
 
 (* Print result of results *)
-val () = print (Util.summarizeArraySlice 100 (fn r => Real.fmt StringCvt.EXACT (#result r)) rs_from_chars ^ "\n")
+(* val () = print (Util.summarizeArraySlice 100 (fn r => Real.fmt StringCvt.EXACT (#result r)) rs_from_chars ^ "\n") *)
+
+(* Test from_slice_with_info *)
+val _ = print
+  "\n\
+   \==============================================================\n\
+   \testing FastReal.from_slice_with_info\n\
+   \==============================================================\n"
+val (rs_from_slice, num_fast) = Benchmark.run "from_slice" (fn () =>
+  let
+    val results = ForkJoin.alloc n
+    val num_fast = SeqBasis.reduce 5000 op+ 0 (0, n) (fn i =>
+      let
+        val (lo, hi) = nth i
+        val slice = ArraySlice.subslice (chars, lo, SOME (hi - lo))
+        val {result, num_chomped, fast_path} = valOf (FR.from_slice_with_info slice)
+      in
+        Array.update (results, i, {result = result, num_chomped = num_chomped});
+        if fast_path then 1 else 0
+      end)
+  in
+    (ArraySlice.full results, num_fast)
+  end)
+
+val _ = print ("NUM FAST " ^ Int.toString num_fast ^ "\n")
 
 
-val () = print "SANITY CHECK: 123.456e+\n";
-val test_str = "123.456e+"
-fun reader i = if i >= String.size test_str then NONE else SOME (String.sub (test_str, i), i + 1)
-val (r, stop) = valOf (Real.scan reader 0)
-val _ = print ("Real.scan num_chomped: " ^ Int.toString stop ^ "\n")
-val {num_chomped, ...} = valOf (FR.from_chars_with_info 
-  {start = 0, stop = String.size test_str, get = fn i => String.sub (test_str, i)})
-val _ = print ("FastReal num_chomped: " ^ Int.toString num_chomped ^ "\n")
