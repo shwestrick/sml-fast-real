@@ -61,7 +61,7 @@ floating point value.
 
 This function is used on the fast path; ideally, it
 should have very low overhead and zero allocation.
-In MLton, suitable functions are `MLton.Real32.fromLargeWord` and
+In MLton (and MaPLe), suitable functions are `MLton.Real32.fromLargeWord` and
 `MLton.Real64.fromLargeWord`. See below for example usage.
 
 ```sml

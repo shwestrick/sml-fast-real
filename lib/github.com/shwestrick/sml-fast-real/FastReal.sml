@@ -232,26 +232,28 @@ struct
           (false, 0, exponent, i)
         else
           let
-            val i = i + 1
-
-            val (explicit_exponent_is_negative, i) =
-              if get i = #"-" orelse get i = #"~" then (true, i + 1)
-              else if get i = #"+" then (false, i + 1)
-              else (false, i)
-
-            val (explicit_exponent_num, i') =
-              push_digit_chars 0w0 {start = i, stop = stop, get = get}
-            val explicit_exponent_digit_count = i' - i
-            val i = i'
-
-            val explicit_exponent_num = Word64.toIntX explicit_exponent_num
-            val explicit_exponent_num =
-              if explicit_exponent_is_negative then ~explicit_exponent_num
-              else explicit_exponent_num
-
-            val exponent = exponent + explicit_exponent_num
+            val i_after_e = i + 1
+            val (explicit_exponent_is_negative, i_after_sign) =
+              if i_after_e >= stop then (false, i_after_e)
+              else if get i_after_e = #"-" orelse get i_after_e = #"~" then (true, i_after_e + 1)
+              else if get i_after_e = #"+" then (false, i_after_e + 1)
+              else (false, i_after_e)
+            val (explicit_exponent_num, i_after_digits) =
+              push_digit_chars 0w0 {start = i_after_sign, stop = stop, get = get}
+            val explicit_exponent_digit_count = i_after_digits - i_after_sign
           in
-            (true, explicit_exponent_digit_count, exponent, i)
+            if explicit_exponent_digit_count = 0 then
+              (false, 0, exponent, i)
+            else
+              let
+                val explicit_exponent_num = Word64.toIntX explicit_exponent_num
+                val explicit_exponent_num =
+                  if explicit_exponent_is_negative then ~explicit_exponent_num
+                  else explicit_exponent_num
+                val exponent = exponent + explicit_exponent_num
+              in
+                (true, explicit_exponent_digit_count, exponent, i_after_digits)
+              end
           end
 
     (* val _ = print ("start " ^ itos start ^ "\n")

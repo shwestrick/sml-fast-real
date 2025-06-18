@@ -194,5 +194,3 @@ val (rs_from_slice, num_fast) = Benchmark.run "from_slice" (fn () =>
 
 val _ = print ("NUM FAST " ^ Int.toString num_fast ^ "\n")
 val () = report_errors rs_from_slice
-
-

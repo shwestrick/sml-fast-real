@@ -1,0 +1,11 @@
+$(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/basis/mlton.mlb
+lib/github.com/mpllang/mpllib/sources.mpl.mlb
+(* local
+  $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+in
+  structure Random
+end *)
+../lib/github.com/shwestrick/sml-fast-real/sources.mlb
+RealStringGen.sml
+throughput_test.sml
