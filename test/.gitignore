@@ -3,3 +3,5 @@ test
 test.mpl
 parse_arg
 parse_arg.mpl
+throughput_test
+throughput_test.mpl
