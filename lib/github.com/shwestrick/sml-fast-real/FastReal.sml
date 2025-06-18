@@ -592,7 +592,7 @@ struct
             let
               val digit_block = SIMDParse.neon_parse (arr, i)
             in
-              if Word64.compare (digit_block, Word64.fromInt ~1) = EQUAL then
+              if digit_block = 0wxFFFFFFFFFFFFFFFF then
                 scalar_fallback (acc, i)
               else
                 let

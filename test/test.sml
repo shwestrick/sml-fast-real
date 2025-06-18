@@ -174,7 +174,7 @@ val () = report_errors rs_from_chars
 val _ = print
   "\n\
    \==============================================================\n\
-   \testing FastReal.from_slice_with_info\n\
+   \testing FastReal.from_slice_with_info_simd\n\
    \==============================================================\n"
 val (rs_from_slice, num_fast) = Benchmark.run "from_slice" (fn () =>
   let
@@ -193,5 +193,6 @@ val (rs_from_slice, num_fast) = Benchmark.run "from_slice" (fn () =>
   end)
 
 val _ = print ("NUM FAST " ^ Int.toString num_fast ^ "\n")
+val () = report_errors rs_from_slice
 
 
