@@ -1,5 +1,13 @@
+(* local
+  $(SML_LIB)/basis/basis.mlb
+  digit_parse.sml
+in
+  structure DigitParse
+end *)
+
 local
   $(SML_LIB)/basis/basis.mlb
+  SIMDParse.sml
   FastReal.sml
 in
   functor FastReal
