@@ -23,6 +23,13 @@ test.ffi: $(SML_FAST_REAL_SOURCES) lib test.sml test.mlb $(SML_FAST_REAL_DIR)/di
 	-default-ann 'allowFFI true' \
 	-link-opt $(SML_FAST_REAL_DIR)/digit_parse_neon.o \
 	test.mlb
+
+test.mpl.ffi: $(SML_FAST_REAL_SOURCES) lib test.sml test.mlb $(SML_FAST_REAL_DIR)/digit_parse_neon.o
+	mpl -default-type int64 -default-type word64 \
+	-default-ann 'allowFFI true' \
+	-link-opt $(SML_FAST_REAL_DIR)/digit_parse_neon.o \
+	test.mlb
+
 clean:
 	rm -f $(SML_FAST_REAL_DIR)/digit_parse_neon.o
 	rm test
