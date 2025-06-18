@@ -34,32 +34,41 @@ fun gen_char_except_digit seed =
 
 val seed = Util.hash (Util.hash seed)
 
-val afters =
-  Seq.tabulate
-    (fn i => Seq.tabulate (fn j => gen_char_except_digit (seed + 5 * i + j)) 5)
-    n
 
-fun interleave s t =
-  if Seq.length s <> Seq.length t then
-    raise Fail "interleave"
-  else
+local
+  val afters =
     Seq.tabulate
-      (fn i => if i mod 2 = 0 then Seq.nth s (i div 2) else Seq.nth t (i div 2))
-      (2 * Seq.length s)
+      (fn i => Seq.tabulate (fn j => gen_char_except_digit (seed + 5 * i + j)) 5)
+      n
 
-val rs_charseqs =
-  interleave
-    (Seq.map (fn s => Seq.tabulate (fn i => String.sub (s, i)) (String.size s))
-       rs) afters
+  fun interleave s t =
+    if Seq.length s <> Seq.length t then
+      raise Fail "interleave"
+    else
+      Seq.tabulate
+        (fn i =>
+           if i mod 2 = 0 then Seq.nth s (i div 2) else Seq.nth t (i div 2))
+        (2 * Seq.length s)
 
-val offsets =
-  ArraySlice.full (SeqBasis.scan 1000 op+ 0 (0, Seq.length rs_charseqs) (fn i =>
-    Seq.length (Seq.nth rs_charseqs i)))
-val chars: char ArraySlice.slice = Seq.flatten rs_charseqs
+  val rs_charseqs =
+    interleave
+      (Seq.map
+         (fn s => Seq.tabulate (fn i => String.sub (s, i)) (String.size s)) rs)
+      afters
 
-(* strip away Seq for more efficient indexing, if possible. *)
-val (chars_array, chars_array_start, _) = ArraySlice.base chars
-val () = if chars_array_start = 0 then () else raise Fail "whoops, not a slice"
+  val offsets =
+    ArraySlice.full
+      (SeqBasis.scan 1000 op+ 0 (0, Seq.length rs_charseqs) (fn i =>
+         Seq.length (Seq.nth rs_charseqs i)))
+  val chars: char ArraySlice.slice = Seq.flatten rs_charseqs
+
+  (* strip away Seq for more efficient indexing, if possible. *)
+  val (chars_array, chars_array_start, _) = ArraySlice.base chars
+  val () =
+    if chars_array_start = 0 then () else raise Fail "whoops, not a slice"
+
+in val chars_array = chars_array val offsets = offsets
+end
 
 fun nth i =
   let
